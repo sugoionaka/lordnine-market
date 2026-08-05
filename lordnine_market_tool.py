@@ -167,8 +167,10 @@ def fetch_all_marketplace_data(realm_code):
         rarity_name = RARITY_COLORS.get(bg_color, "不明")
         
         jpy_price = 0
+        currency_type = "JPY"
         if 'fiatPriceInfo' in item:
             jpy_price = item['fiatPriceInfo'].get('price', 0)
+            currency_type = item['fiatPriceInfo'].get('currencyType', 'JPY')
             
         usdt_price = 0
         if 'cryptoPriceInfo' in item:
@@ -189,6 +191,7 @@ def fetch_all_marketplace_data(realm_code):
             "name": item.get('item', {}).get('name', 'Unknown'),
             "rarity": rarity_name,
             "jpy_price": jpy_price,
+            "currency_type": currency_type,
             "usdt_price": usdt_price,
             "enhance_lvl": enhance_lvl
         })
@@ -229,10 +232,21 @@ currency_mode = st.sidebar.radio("価格表示 (通貨)", ["JPY (日本円)", "U
 is_jpy = "JPY" in currency_mode
 price_col = 'jpy_price' if is_jpy else 'usdt_price'
 
+jpy_rate = 157
+if is_jpy:
+    jpy_rate = st.sidebar.number_input("USDT換算レート (円)", min_value=100, max_value=200, value=157, step=1, help="クラウドサーバー経由のためAPIが日本円を返さない場合、USDTから自動換算します。")
+
 st.sidebar.markdown("<hr style='margin: 5px 0;'>", unsafe_allow_html=True)
 
 with st.spinner(f"サーバー「{selected_realm_name}」のデータを取得中..."):
     df_all = fetch_all_marketplace_data(realm_code)
+
+if not df_all.empty and is_jpy:
+    # サーバーが海外で USD 等を返した場合、USDT価格 × 設定レート で強制的に日本円を計算する
+    df_all['jpy_price'] = df_all.apply(
+        lambda x: x['jpy_price'] if x['currency_type'] == 'JPY' else x['usdt_price'] * jpy_rate, 
+        axis=1
+    )
 
 if df_all.empty:
     st.error("データの取得に失敗したか、出品アイテムがありません。")
