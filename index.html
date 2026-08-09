@@ -1,0 +1,170 @@
+<!DOCTYPE html>
+<html lang="ja">
+<head>
+    <meta charset="UTF-8">
+    <meta name="viewport" content="width=device-width, initial-scale=1.0">
+    <title>LORDNINE Market Analyzer</title>
+    
+    <!-- Fonts: Google Fonts (Outfit) -->
+    <link rel="preconnect" href="https://fonts.googleapis.com">
+    <link rel="preconnect" href="https://fonts.gstatic.com" crossorigin>
+    <link href="https://fonts.googleapis.com/css2?family=Outfit:wght@300;400;600;700&display=swap" rel="stylesheet">
+    
+    <!-- Icons: FontAwesome -->
+    <link rel="stylesheet" href="https://cdnjs.cloudflare.com/ajax/libs/font-awesome/6.4.0/css/all.min.css">
+    
+    <!-- Custom CSS -->
+    <link rel="stylesheet" href="style.css">
+</head>
+<body>
+    <div id="app-container">
+        <!-- Sidebar -->
+        <aside class="sidebar">
+            <div class="sidebar-header">
+                <h2><i class="fa-solid fa-gear"></i> 設定</h2>
+            </div>
+            
+            <div class="sidebar-section">
+                <label for="realmSelect">サーバー (Realm)</label>
+                <select id="realmSelect">
+                    <option value="LOADING">ロード中...</option>
+                </select>
+            </div>
+
+            <button id="reloadBtn" class="btn-primary">
+                <i class="fa-solid fa-arrows-rotate"></i> 最新データを取得
+            </button>
+
+            <div class="divider"></div>
+
+            <div class="sidebar-section">
+                <label>価格表示 (通貨)</label>
+                <div class="radio-group">
+                    <input type="radio" id="currencyJPY" name="currencyMode" value="JPY" checked>
+                    <label for="currencyJPY">JPY (日本円)</label>
+                    <input type="radio" id="currencyUSDT" name="currencyMode" value="USDT">
+                    <label for="currencyUSDT">USDT</label>
+                </div>
+            </div>
+
+            <div class="sidebar-section" id="jpyRateContainer">
+                <label for="jpyRate">USDT換算レート (円)</label>
+                <input type="number" id="jpyRate" value="157" min="100" max="200" step="1">
+            </div>
+
+            <div class="divider"></div>
+
+            <div class="sidebar-section">
+                <label for="mainCatSelect">メインカテゴリ</label>
+                <select id="mainCatSelect">
+                    <option value="すべて">すべて</option>
+                </select>
+            </div>
+
+            <div class="sidebar-section">
+                <label for="subCatSelect">サブカテゴリ</label>
+                <select id="subCatSelect">
+                    <option value="すべて">すべて</option>
+                </select>
+            </div>
+
+            <div class="divider"></div>
+
+            <div class="sidebar-section">
+                <label for="raritySelect">表示するレアリティ</label>
+                <select id="raritySelect">
+                    <option value="すべて">すべて</option>
+                    <option value="コモン">コモン</option>
+                    <option value="アンコモン">アンコモン</option>
+                    <option value="レア">レア</option>
+                    <option value="エピック">エピック</option>
+                    <option value="レジェンド">レジェンド</option>
+                    <option value="ミシック">ミシック</option>
+                </select>
+            </div>
+        </aside>
+
+        <!-- Main Content -->
+        <main class="main-content">
+            <header class="main-header">
+                <h1>⚔️ LORDNINE NEXT Market 分析ツール</h1>
+            </header>
+            
+            <div id="loadingOverlay" class="loading-overlay">
+                <div class="spinner"></div>
+                <div id="loadingText" class="loading-text">データを取得中...</div>
+                <div class="progress-bar-container">
+                    <div id="progressBar" class="progress-bar"></div>
+                </div>
+            </div>
+
+            <div id="summaryBar" class="summary-bar">
+                <div class="summary-item">
+                    <i class="fa-solid fa-boxes-stacked"></i>
+                    <span class="summary-label">該当アイテム数:</span>
+                    <strong id="summaryCount">0</strong> 件
+                </div>
+                <div class="summary-item">
+                    <i class="fa-solid fa-arrow-trend-down"></i>
+                    <span class="summary-label">最安値:</span>
+                    <strong id="summaryMin">¥0</strong>
+                </div>
+                <div class="summary-item">
+                    <i class="fa-solid fa-arrow-trend-up"></i>
+                    <span class="summary-label">最高値:</span>
+                    <strong id="summaryMax">¥0</strong>
+                </div>
+            </div>
+
+            <div class="dashboard-grid">
+                <!-- Left Table: Items List -->
+                <div class="panel list-panel">
+                    <h3>⭐ 相場一覧 <span class="subtitle">(行クリックで右に詳細表示)</span></h3>
+                    <div class="table-container">
+                        <table id="mainTable">
+                            <thead>
+                                <tr>
+                                    <th>アイテム名</th>
+                                    <th>出品数</th>
+                                    <th>最安値</th>
+                                    <th>最高値</th>
+                                </tr>
+                            </thead>
+                            <tbody id="mainTableBody">
+                                <!-- Data injected by JS -->
+                            </tbody>
+                        </table>
+                    </div>
+                </div>
+
+                <!-- Right Table: Item Details (Enhance levels) -->
+                <div class="panel details-panel">
+                    <h3 id="detailsTitle">🔍 強化値内訳</h3>
+                    <div id="detailsPlaceholder" class="details-placeholder">
+                        <i class="fa-solid fa-hand-pointer"></i>
+                        <p>左の表からアイテムをクリックすると、ここに強化値ごとの内訳が表示されます。</p>
+                    </div>
+                    <div id="detailsContent" class="table-container hidden">
+                        <table id="detailsTable">
+                            <thead>
+                                <tr>
+                                    <th>強化値</th>
+                                    <th>出品数</th>
+                                    <th>最安値</th>
+                                    <th>最高値</th>
+                                </tr>
+                            </thead>
+                            <tbody id="detailsTableBody">
+                                <!-- Data injected by JS -->
+                            </tbody>
+                        </table>
+                    </div>
+                </div>
+            </div>
+        </main>
+    </div>
+
+    <!-- Custom JS -->
+    <script src="app.js"></script>
+</body>
+</html>
