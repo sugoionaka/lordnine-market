@@ -418,7 +418,7 @@ else:
         }
         """)
         gb.configure_column("アイテム名", cellStyle=color_jscode, flex=1, tooltipField="アイテム名", minWidth=200)
-        gb.configure_grid_options(domLayout='autoHeight')
+        # domLayout='autoHeight' を削除して枠の高さを固定し、内部スクロールを有効にする
         
         go = gb.build()
         
@@ -427,7 +427,8 @@ else:
             gridOptions=go,
             update_mode=GridUpdateMode.SELECTION_CHANGED,
             allow_unsafe_jscode=True,
-            theme='streamlit'
+            theme='streamlit',
+            height=700  # 高さを指定してスクロールバーを表示させる
         )
     
     with col_details:
@@ -515,7 +516,7 @@ else:
                 detail_gb.configure_column("出品数", width=80)
                 detail_gb.configure_column("最安値", width=100, type=["numericColumn"], valueFormatter=formatter_jscode)
                 detail_gb.configure_column("最高値", width=100, type=["numericColumn"], valueFormatter=formatter_jscode)
-                detail_gb.configure_grid_options(domLayout='autoHeight')
+                # domLayout='autoHeight' を削除
                 detail_go = detail_gb.build()
                 
                 st.markdown("👇 **強化値の行をクリックすると上のチャートが更新されます**")
@@ -526,7 +527,8 @@ else:
                     update_mode=GridUpdateMode.SELECTION_CHANGED,
                     allow_unsafe_jscode=True,
                     theme='streamlit',
-                    key='detail_grid_' + selected_item_name
+                    key='detail_grid_' + selected_item_name,
+                    height=350 # 高さを指定
                 )
                 
                 detail_selected = detail_res.get('selected_rows')
