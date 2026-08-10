@@ -211,6 +211,8 @@ select option {
     gap: 20px;
     flex: 1;
     min-height: 0;
+    height: 0;
+    overflow: hidden;
 }
 
 .panel {
@@ -222,6 +224,8 @@ select option {
     display: flex;
     flex-direction: column;
     min-height: 0;
+    height: 100%;
+    overflow: hidden;
 }
 
 .panel h3 {
@@ -245,6 +249,7 @@ select option {
     border: 1px solid var(--border-color);
     background-color: rgba(0, 0, 0, 0.2);
     min-height: 0;
+    height: 0;
 }
 
 .table-container::-webkit-scrollbar {
