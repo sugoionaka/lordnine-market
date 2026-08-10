@@ -130,7 +130,6 @@ select option {
     margin: 5px 0;
 }
 
-/* Radio buttons for Custom Pill-like design */
 .radio-group {
     display: flex;
     gap: 5px;
@@ -271,6 +270,27 @@ thead th {
     z-index: 1;
 }
 
+th.sortable {
+    cursor: pointer;
+    user-select: none;
+    transition: background-color 0.2s, color 0.2s;
+}
+
+th.sortable:hover {
+    background-color: rgba(255, 255, 255, 0.05);
+    color: var(--text-primary);
+}
+
+th.sortable i {
+    margin-left: 5px;
+    font-size: 0.8rem;
+    opacity: 0.5;
+}
+
+th.sortable:hover i {
+    opacity: 1;
+}
+
 tbody td {
     padding: 12px 15px;
     border-bottom: 1px solid rgba(255, 255, 255, 0.05);
@@ -299,7 +319,6 @@ tbody tr.active-row {
 .rarity-レジェンド { color: var(--rarity-legendary); font-weight: 600; text-shadow: 0 0 8px rgba(255,152,0,0.6); }
 .rarity-ミシック { color: var(--rarity-mythic); font-weight: 600; text-shadow: 0 0 10px rgba(244,67,54,0.8); }
 
-/* Details Panel Placeholder */
 .details-placeholder {
     flex: 1;
     display: flex;
@@ -319,7 +338,6 @@ tbody tr.active-row {
     display: none !important;
 }
 
-/* --- Loading Overlay --- */
 .loading-overlay {
     position: absolute;
     top: 0; left: 0; right: 0; bottom: 0;

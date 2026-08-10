@@ -14,10 +14,17 @@ let categoriesToFetch = [];
 let currentRealmCode = "";
 let selectedItemName = null;
 
+let currentSort = { column: 'name', asc: true };
+let currentDetailsSort = { column: 'level', asc: true };
+let currentGroupedArr = [];
+let currentEnhArr = [];
+let isJpyGlobal = true;
+
 // DOM 要素
 const DOM = {
     realmSelect: document.getElementById('realmSelect'),
     reloadBtn: document.getElementById('reloadBtn'),
+    lastUpdated: document.getElementById('lastUpdated'),
     currencyRadios: document.getElementsByName('currencyMode'),
     jpyRate: document.getElementById('jpyRate'),
     jpyRateContainer: document.getElementById('jpyRateContainer'),
@@ -53,7 +60,6 @@ async function fetchApi(url, method = "GET", payload = null) {
         options.body = JSON.stringify(payload);
     }
     
-    // シンプルなリトライロジック
     for (let i = 0; i < 3; i++) {
         try {
             const response = await fetch(url, options);
@@ -61,7 +67,7 @@ async function fetchApi(url, method = "GET", payload = null) {
             return await response.json();
         } catch (e) {
             if (i === 2) return null;
-            await new Promise(r => setTimeout(r, 500 * Math.pow(2, i))); // 0.5s, 1s, ...
+            await new Promise(r => setTimeout(r, 500 * Math.pow(2, i))); 
         }
     }
     return null;
@@ -82,6 +88,35 @@ async function initApp() {
     });
     DOM.subCatSelect.addEventListener('change', updateView);
     DOM.raritySelect.addEventListener('change', updateView);
+    
+    // ソートイベントの登録
+    document.querySelectorAll('#mainTable th.sortable').forEach(th => {
+        th.addEventListener('click', () => {
+            const col = th.dataset.sort;
+            if (currentSort.column === col) {
+                currentSort.asc = !currentSort.asc;
+            } else {
+                currentSort.column = col;
+                currentSort.asc = true;
+            }
+            updateSortIcons('mainTable', currentSort.column, currentSort.asc);
+            renderMainTable();
+        });
+    });
+    
+    document.querySelectorAll('#detailsTable th.sortable').forEach(th => {
+        th.addEventListener('click', () => {
+            const col = th.dataset.sort;
+            if (currentDetailsSort.column === col) {
+                currentDetailsSort.asc = !currentDetailsSort.asc;
+            } else {
+                currentDetailsSort.column = col;
+                currentDetailsSort.asc = true;
+            }
+            updateSortIcons('detailsTable', currentDetailsSort.column, currentDetailsSort.asc);
+            renderDetailsTable();
+        });
+    });
     
     // Realm取得
     realms = await fetchApi('https://api.nextmarket.games/l9asia/v1/realm');
@@ -106,6 +141,16 @@ async function initApp() {
     await reloadData();
 }
 
+function updateSortIcons(tableId, activeCol, isAsc) {
+    document.querySelectorAll(`#${tableId} th.sortable i`).forEach(icon => {
+        icon.className = 'fa-solid fa-sort';
+    });
+    const activeTh = document.querySelector(`#${tableId} th[data-sort="${activeCol}"] i`);
+    if (activeTh) {
+        activeTh.className = isAsc ? 'fa-solid fa-sort-up' : 'fa-solid fa-sort-down';
+    }
+}
+
 // データ再取得ロジック
 async function reloadData() {
     currentRealmCode = DOM.realmSelect.value;
@@ -113,7 +158,6 @@ async function reloadData() {
     DOM.progressBar.style.width = '0%';
     
     try {
-        // Preset取得
         DOM.loadingText.textContent = "カテゴリ情報を取得中...";
         const presets = await fetchApi('https://api.nextmarket.games/l9asia/v1/sale/c2c/preset');
         if (!presets) throw new Error("Preset fetch failed");
@@ -136,7 +180,6 @@ async function reloadData() {
         
         DOM.loadingText.textContent = "データの超高速取得中... (フェーズ1)";
         
-        // 最初のページを並列取得 (最大20並列くらいに制御)
         const fetchFirstPage = async (cat) => {
             const data = await fetchApi(`https://api.nextmarket.games/l9asia/v1/sale/c2c?page=0&size=500`, "POST", {
                 realmCode: currentRealmCode, presetId: cat.id
@@ -157,7 +200,6 @@ async function reloadData() {
             DOM.progressBar.style.width = `${(completed / totalCats) * 50}%`;
         };
         
-        // chunking for parallel limit
         for (let i = 0; i < categoriesToFetch.length; i += 15) {
             const chunk = categoriesToFetch.slice(i, i + 15);
             await Promise.all(chunk.map(c => fetchFirstPage(c)));
@@ -198,6 +240,8 @@ async function reloadData() {
         alert("データ取得に失敗しました。");
     } finally {
         DOM.loadingOverlay.classList.add('hidden');
+        const now = new Date();
+        DOM.lastUpdated.textContent = `最終更新: ${now.toLocaleTimeString('ja-JP')}`;
     }
 }
 
@@ -243,8 +287,8 @@ function updateSubCategoryOptions() {
 
 // UI更新処理
 function updateView() {
-    const isJpy = document.getElementById('currencyJPY').checked;
-    DOM.jpyRateContainer.style.display = isJpy ? 'flex' : 'none';
+    isJpyGlobal = document.getElementById('currencyJPY').checked;
+    DOM.jpyRateContainer.style.display = isJpyGlobal ? 'flex' : 'none';
     const rate = parseFloat(DOM.jpyRate.value) || 157;
     
     const mainCat = DOM.mainCatSelect.value;
@@ -259,7 +303,7 @@ function updateView() {
     
     // 価格の計算
     filtered.forEach(item => {
-        if (isJpy) {
+        if (isJpyGlobal) {
             item.display_price = item.currency_type === 'JPY' ? item.jpy_price : (item.usdt_price * rate);
         } else {
             item.display_price = item.usdt_price;
@@ -275,11 +319,11 @@ function updateView() {
         const prices = filtered.map(d => d.display_price);
         const min = Math.min(...prices);
         const max = Math.max(...prices);
-        DOM.summaryMin.textContent = formatPrice(min, isJpy);
-        DOM.summaryMax.textContent = formatPrice(max, isJpy);
+        DOM.summaryMin.textContent = formatPrice(min, isJpyGlobal);
+        DOM.summaryMax.textContent = formatPrice(max, isJpyGlobal);
     } else {
-        DOM.summaryMin.textContent = formatPrice(0, isJpy);
-        DOM.summaryMax.textContent = formatPrice(0, isJpy);
+        DOM.summaryMin.textContent = formatPrice(0, isJpyGlobal);
+        DOM.summaryMax.textContent = formatPrice(0, isJpyGlobal);
     }
     
     // グループ化 (アイテム名 + レアリティ)
@@ -298,22 +342,8 @@ function updateView() {
         g.items.push(item);
     });
     
-    const groupedArr = Array.from(groupedMap.values()).sort((a, b) => a.name.localeCompare(b.name));
-    
-    // メインテーブルの描画
-    DOM.mainTableBody.innerHTML = '';
-    groupedArr.forEach(g => {
-        const tr = document.createElement('tr');
-        tr.onclick = () => showDetails(g, tr, isJpy);
-        
-        tr.innerHTML = `
-            <td class="rarity-${g.rarity}">${g.name}</td>
-            <td>${g.count.toLocaleString()}</td>
-            <td>${formatPrice(g.min, isJpy)}</td>
-            <td>${formatPrice(g.max, isJpy)}</td>
-        `;
-        DOM.mainTableBody.appendChild(tr);
-    });
+    currentGroupedArr = Array.from(groupedMap.values());
+    renderMainTable();
     
     // 詳細のクリア
     DOM.detailsTitle.textContent = "🔍 強化値内訳";
@@ -322,11 +352,43 @@ function updateView() {
     selectedItemName = null;
 }
 
+function renderMainTable() {
+    currentGroupedArr.sort((a, b) => {
+        let valA = a[currentSort.column];
+        let valB = b[currentSort.column];
+        
+        if (currentSort.column === 'name') {
+            return currentSort.asc ? valA.localeCompare(valB) : valB.localeCompare(valA);
+        } else {
+            return currentSort.asc ? (valA - valB) : (valB - valA);
+        }
+    });
+
+    DOM.mainTableBody.innerHTML = '';
+    currentGroupedArr.forEach(g => {
+        const tr = document.createElement('tr');
+        if (selectedItemName === g.name + "::" + g.rarity) {
+            tr.classList.add('active-row');
+        }
+        tr.onclick = () => showDetails(g, tr);
+        
+        tr.innerHTML = `
+            <td class="rarity-${g.rarity}">${g.name}</td>
+            <td>${g.count.toLocaleString()}</td>
+            <td>${formatPrice(g.min, isJpyGlobal)}</td>
+            <td>${formatPrice(g.max, isJpyGlobal)}</td>
+        `;
+        DOM.mainTableBody.appendChild(tr);
+    });
+}
+
 // 詳細ビューの描画
-function showDetails(groupData, trElement, isJpy) {
+function showDetails(groupData, trElement) {
+    selectedItemName = groupData.name + "::" + groupData.rarity;
+    
     // アクティブラインのハイライト
     document.querySelectorAll('#mainTableBody tr').forEach(row => row.classList.remove('active-row'));
-    trElement.classList.add('active-row');
+    if(trElement) trElement.classList.add('active-row');
     
     DOM.detailsTitle.innerHTML = `🔍 「<span class="rarity-${groupData.rarity}">${groupData.name}</span>」 の強化値内訳`;
     DOM.detailsPlaceholder.classList.add('hidden');
@@ -344,18 +406,32 @@ function showDetails(groupData, trElement, isJpy) {
         if (item.display_price > e.max) e.max = item.display_price;
     });
     
-    const enhArr = Array.from(enhMap.values()).sort((a, b) => {
-        return parseInt(a.level.replace('+', '')) - parseInt(b.level.replace('+', ''));
+    currentEnhArr = Array.from(enhMap.values());
+    renderDetailsTable();
+}
+
+function renderDetailsTable() {
+    currentEnhArr.sort((a, b) => {
+        let valA = a[currentDetailsSort.column];
+        let valB = b[currentDetailsSort.column];
+        
+        if (currentDetailsSort.column === 'level') {
+            const numA = parseInt(a.level.replace('+', ''));
+            const numB = parseInt(b.level.replace('+', ''));
+            return currentDetailsSort.asc ? (numA - numB) : (numB - numA);
+        } else {
+            return currentDetailsSort.asc ? (valA - valB) : (valB - valA);
+        }
     });
-    
+
     DOM.detailsTableBody.innerHTML = '';
-    enhArr.forEach(e => {
+    currentEnhArr.forEach(e => {
         const tr = document.createElement('tr');
         tr.innerHTML = `
             <td><strong>${e.level}</strong></td>
             <td>${e.count.toLocaleString()}</td>
-            <td>${formatPrice(e.min, isJpy)}</td>
-            <td>${formatPrice(e.max, isJpy)}</td>
+            <td>${formatPrice(e.min, isJpyGlobal)}</td>
+            <td>${formatPrice(e.max, isJpyGlobal)}</td>
         `;
         DOM.detailsTableBody.appendChild(tr);
     });

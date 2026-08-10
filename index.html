@@ -34,6 +34,7 @@
             <button id="reloadBtn" class="btn-primary">
                 <i class="fa-solid fa-arrows-rotate"></i> 最新データを取得
             </button>
+            <div id="lastUpdated" style="font-size: 0.75rem; color: var(--text-secondary); text-align: center; margin-top: 5px;"></div>
 
             <div class="divider"></div>
 
@@ -124,10 +125,10 @@
                         <table id="mainTable">
                             <thead>
                                 <tr>
-                                    <th>アイテム名</th>
-                                    <th>出品数</th>
-                                    <th>最安値</th>
-                                    <th>最高値</th>
+                                    <th class="sortable" data-sort="name">アイテム名 <i class="fa-solid fa-sort"></i></th>
+                                    <th class="sortable" data-sort="count">出品数 <i class="fa-solid fa-sort"></i></th>
+                                    <th class="sortable" data-sort="min">最安値 <i class="fa-solid fa-sort"></i></th>
+                                    <th class="sortable" data-sort="max">最高値 <i class="fa-solid fa-sort"></i></th>
                                 </tr>
                             </thead>
                             <tbody id="mainTableBody">
@@ -148,10 +149,10 @@
                         <table id="detailsTable">
                             <thead>
                                 <tr>
-                                    <th>強化値</th>
-                                    <th>出品数</th>
-                                    <th>最安値</th>
-                                    <th>最高値</th>
+                                    <th class="sortable" data-sort="level">強化値 <i class="fa-solid fa-sort"></i></th>
+                                    <th class="sortable" data-sort="count">出品数 <i class="fa-solid fa-sort"></i></th>
+                                    <th class="sortable" data-sort="min">最安値 <i class="fa-solid fa-sort"></i></th>
+                                    <th class="sortable" data-sort="max">最高値 <i class="fa-solid fa-sort"></i></th>
                                 </tr>
                             </thead>
                             <tbody id="detailsTableBody">
