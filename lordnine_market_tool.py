@@ -1,6 +1,7 @@
 import streamlit as st
-import urllib.request
-import urllib.error
+import requests
+from requests.adapters import HTTPAdapter
+from urllib3.util.retry import Retry
 import json
 import math
 import time
@@ -51,25 +52,33 @@ RARITY_TEXT_COLORS = {
     "ミシック": "#F44336"
 }
 
-def fetch_api(url, method="GET", payload=None, max_retries=5):
-    req = urllib.request.Request(url, method=method)
-    req.add_header('Content-Type', 'application/json')
-    req.add_header('Accept-Language', 'ja-JP,ja;q=0.9,en-US;q=0.8,en;q=0.7')
-    if payload:
-        req.data = json.dumps(payload).encode('utf-8')
-        
-    for attempt in range(max_retries):
-        try:
-            with urllib.request.urlopen(req) as response:
-                return json.loads(response.read().decode('utf-8'))
-        except urllib.error.HTTPError as e:
-            if e.code in [429, 500, 502, 503, 504]:
-                time.sleep(0.5 * (2 ** attempt))
-                continue
-            return None
-        except Exception as e:
-            return None
-    return None
+# 高速化のためのセッションとコネクションプール設定
+session = requests.Session()
+retry = Retry(
+    total=5,
+    read=5,
+    connect=5,
+    backoff_factor=0.5,
+    status_forcelist=[429, 500, 502, 503, 504],
+)
+adapter = HTTPAdapter(max_retries=retry, pool_connections=50, pool_maxsize=50)
+session.mount('http://', adapter)
+session.mount('https://', adapter)
+session.headers.update({
+    'Content-Type': 'application/json',
+    'Accept-Language': 'ja-JP,ja;q=0.9,en-US;q=0.8,en;q=0.7'
+})
+
+def fetch_api(url, method="GET", payload=None):
+    try:
+        if method == "GET":
+            response = session.get(url, timeout=10)
+        else:
+            response = session.post(url, json=payload, timeout=10)
+        response.raise_for_status()
+        return response.json()
+    except Exception as e:
+        return None
 
 @st.cache_data(ttl=3600)
 def get_realms():
@@ -121,7 +130,7 @@ def fetch_all_marketplace_data(realm_code):
     def fetch_initial(cat):
         return cat, fetch_page(realm_code, cat['id'], 0, size=500)
         
-    with concurrent.futures.ThreadPoolExecutor(max_workers=10) as executor:
+    with concurrent.futures.ThreadPoolExecutor(max_workers=40) as executor:
         future_to_cat = {executor.submit(fetch_initial, cat): cat for cat in categories_to_fetch}
         for future in concurrent.futures.as_completed(future_to_cat):
             cat, first_page = future.result()
@@ -143,7 +152,7 @@ def fetch_all_marketplace_data(realm_code):
     if page_tasks:
         completed_tasks = 0
         total_tasks = len(page_tasks)
-        with concurrent.futures.ThreadPoolExecutor(max_workers=10) as executor:
+        with concurrent.futures.ThreadPoolExecutor(max_workers=40) as executor:
             future_to_info = {
                 executor.submit(fetch_page, realm_code, task[0], task[1], 500): task 
                 for task in page_tasks
