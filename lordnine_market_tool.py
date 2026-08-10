@@ -6,6 +6,7 @@ import json
 import math
 import time
 import datetime
+import os
 import concurrent.futures
 import pandas as pd
 from st_aggrid import AgGrid, GridOptionsBuilder, GridUpdateMode, JsCode, ColumnsAutoSizeMode
@@ -274,6 +275,14 @@ if not df_all.empty and is_jpy:
 if df_all.empty:
     st.error("データの取得に失敗したか、出品アイテムがありません。")
     st.stop()
+    
+# --- 過去の履歴データの読み込み ---
+history_df = pd.DataFrame()
+try:
+    if os.path.exists("history.csv"):
+        history_df = pd.read_csv("history.csv")
+except Exception as e:
+    pass
 
 # --- カテゴリ設定 (Pills化) ---
 main_cats_available = ["すべて"] + list(df_all['main_cat'].unique())
@@ -437,11 +446,30 @@ else:
             has_single_enhance = detail_df['enhance_lvl'].nunique() <= 1
             show_chart_directly = is_unappraised or has_single_enhance
             
+            def render_chart(item_name, enhance, target_df):
+                hist_data = pd.DataFrame()
+                if not history_df.empty:
+                    # history_df expects columns: name, enhance_lvl, appraisal, min_price, realm, date
+                    hist_data = history_df[
+                        (history_df['name'] == item_name) & 
+                        (history_df['enhance_lvl'] == enhance) & 
+                        (history_df['realm'] == realm_code)
+                    ]
+                
+                if not hist_data.empty:
+                    st.markdown(f"##### 📈 過去の価格推移 ({enhance})")
+                    hist_data = hist_data.sort_values('date')
+                    hist_data.set_index('date', inplace=True)
+                    st.line_chart(hist_data['min_price'])
+                else:
+                    st.markdown(f"##### 📈 現在の価格分布 ({enhance})")
+                    chart_data = target_df.sort_values(price_col)[price_col].reset_index(drop=True)
+                    chart_df = pd.DataFrame({'価格': chart_data})
+                    st.line_chart(chart_df)
+                    st.caption("※過去のデータがまだ蓄積されていないため、現在出品中の価格分布を表示しています。")
+            
             if show_chart_directly:
-                st.markdown("##### 📈 価格分布チャート")
-                chart_data = detail_df.sort_values(price_col)[price_col].reset_index(drop=True)
-                chart_df = pd.DataFrame({'価格': chart_data})
-                st.line_chart(chart_df)
+                render_chart(selected_item_name, detail_df.iloc[0]['enhance_lvl'], detail_df)
                 
                 if is_unappraised:
                     detail_grouped = detail_df.agg(
@@ -509,12 +537,9 @@ else:
                         sel_enhance = detail_selected[0]['強化値']
                         
                     chart_target = detail_df[detail_df['enhance_lvl'] == sel_enhance]
-                    chart_data = chart_target.sort_values(price_col)[price_col].reset_index(drop=True)
-                    chart_df = pd.DataFrame({'価格': chart_data})
                     
                     with chart_placeholder.container():
-                        st.markdown(f"##### 📈 {sel_enhance} の価格分布チャート")
-                        st.line_chart(chart_df)
+                        render_chart(selected_item_name, sel_enhance, chart_target)
                 else:
                     with chart_placeholder.container():
                         st.info("👆 下の表から強化値をクリックしてチャートを表示")
