@@ -207,6 +207,7 @@ select option {
 .dashboard-grid {
     display: grid;
     grid-template-columns: 1.3fr 1fr;
+    grid-template-rows: minmax(0, 1fr);
     gap: 20px;
     flex: 1;
     min-height: 0;
