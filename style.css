@@ -220,6 +220,7 @@ select option {
     padding: 20px;
     display: flex;
     flex-direction: column;
+    min-height: 0;
 }
 
 .panel h3 {
@@ -242,6 +243,7 @@ select option {
     border-radius: 8px;
     border: 1px solid var(--border-color);
     background-color: rgba(0, 0, 0, 0.2);
+    min-height: 0;
 }
 
 .table-container::-webkit-scrollbar {
