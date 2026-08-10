@@ -236,8 +236,9 @@ realm_code = realm_options.get(selected_realm_name, "OLD_REALM")
 if st.sidebar.button("🔄 最新データを取得 (リロード)"):
     fetch_all_marketplace_data.clear()
 
-last_updated = datetime.datetime.now().strftime("%Y-%m-%d %H:%M:%S")
-st.sidebar.markdown(f"<div style='text-align:center; font-size: 0.8rem; color: gray;'>最終更新: {last_updated}</div>", unsafe_allow_html=True)
+jst = datetime.timezone(datetime.timedelta(hours=9))
+last_updated = datetime.datetime.now(jst).strftime("%Y-%m-%d %H:%M:%S")
+st.sidebar.markdown(f"<div style='text-align:center; font-size: 0.8rem; color: gray;'>最終更新: {last_updated} (JST)</div>", unsafe_allow_html=True)
 
 st.sidebar.markdown("<hr style='margin: 5px 0;'>", unsafe_allow_html=True)
 
