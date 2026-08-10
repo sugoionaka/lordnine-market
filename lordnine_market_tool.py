@@ -472,11 +472,11 @@ else:
                 render_chart(selected_item_name, detail_df.iloc[0]['enhance_lvl'], detail_df)
                 
                 if is_unappraised:
-                    detail_grouped = detail_df.agg(
-                        出品数=('id', 'count'),
-                        最安値=(price_col, 'min'),
-                        最高値=(price_col, 'max')
-                    ).to_frame().T
+                    detail_grouped = pd.DataFrame([{
+                        '出品数': detail_df['id'].count(),
+                        '最安値': detail_df[price_col].min(),
+                        '最高値': detail_df[price_col].max()
+                    }])
                 else:
                     detail_grouped = detail_df.groupby('enhance_lvl').agg(
                         出品数=('id', 'count'),
