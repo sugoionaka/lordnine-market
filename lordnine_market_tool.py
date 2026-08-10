@@ -194,12 +194,21 @@ def fetch_all_marketplace_data(realm_code):
                     enhance_lvl = f"+{val}"
                     break
         
+        name = item.get('item', {}).get('name', 'Unknown')
+        
+        appraisal = "なし"
+        if "(鑑定)" in name or "(Appraised)" in name:
+            appraisal = "鑑定"
+        elif "(未鑑定)" in name or "(Not Appraised)" in name:
+            appraisal = "未鑑定"
+            
         processed_data.append({
             "id": item.get('id'),
             "main_cat": item.get('__main_cat'),
             "sub_cat": item.get('__sub_cat'),
-            "name": item.get('item', {}).get('name', 'Unknown'),
+            "name": name,
             "rarity": rarity_name,
+            "appraisal": appraisal,
             "jpy_price": jpy_price,
             "currency_type": currency_type,
             "usdt_price": usdt_price,
@@ -315,6 +324,28 @@ if selected_rarity != "すべて" and selected_rarity is not None:
 elif selected_rarity is None:
     filtered_df = pd.DataFrame(columns=df_all.columns)
 
+# --- 鑑定・未鑑定フィルター ---
+has_appraisal = '鑑定' in filtered_df['appraisal'].unique() or '未鑑定' in filtered_df['appraisal'].unique()
+if has_appraisal:
+    st.sidebar.markdown("<hr style='margin: 5px 0;'>", unsafe_allow_html=True)
+    appraisal_options = ["すべて"]
+    if '鑑定' in filtered_df['appraisal'].unique():
+        appraisal_options.append("鑑定")
+    if '未鑑定' in filtered_df['appraisal'].unique():
+        appraisal_options.append("未鑑定")
+        
+    selected_appraisal = st.sidebar.pills(
+        "鑑定状態", 
+        options=appraisal_options, 
+        default="すべて", 
+        selection_mode="single"
+    )
+    if selected_appraisal is None:
+        selected_appraisal = "すべて"
+        
+    if selected_appraisal != "すべて":
+        filtered_df = filtered_df[filtered_df['appraisal'] == selected_appraisal]
+
 filtered_df = filtered_df[filtered_df[price_col] > 0]
 
 if filtered_df.empty:
@@ -398,35 +429,94 @@ else:
             else:
                 selected_item_name = selected[0]['アイテム名']
                 
-            st.markdown(f"#### 🔍 「{selected_item_name}」 の強化値内訳")
+            st.markdown(f"#### 🔍 「{selected_item_name}」 の内訳")
             
             detail_df = filtered_df[filtered_df['name'] == selected_item_name]
             
-            detail_grouped = detail_df.groupby('enhance_lvl').agg(
-                出品数=('id', 'count'),
-                最安値=(price_col, 'min'),
-                最高値=(price_col, 'max')
-            ).reset_index()
+            is_unappraised = detail_df.iloc[0]['appraisal'] == '未鑑定' if not detail_df.empty else False
+            has_single_enhance = detail_df['enhance_lvl'].nunique() <= 1
+            show_chart_directly = is_unappraised or has_single_enhance
             
-            detail_grouped['sort_key'] = detail_grouped['enhance_lvl'].apply(lambda x: int(x.replace('+', '')))
-            detail_grouped = detail_grouped.sort_values('sort_key').drop('sort_key', axis=1)
-            
-            detail_grouped.rename(columns={'enhance_lvl': '強化値'}, inplace=True)
-            
-            st.dataframe(
-                detail_grouped, 
-                use_container_width=True, 
-                hide_index=True,
-                column_config={
-                    "最安値": st.column_config.NumberColumn(
-                        "最安値",
-                        format="¥%d" if is_jpy else "USDT %.2f"
-                    ),
-                    "最高値": st.column_config.NumberColumn(
-                        "最高値",
-                        format="¥%d" if is_jpy else "USDT %.2f"
-                    )
-                }
-            )
+            if show_chart_directly:
+                st.markdown("##### 📈 価格分布チャート")
+                chart_data = detail_df.sort_values(price_col)[price_col].reset_index(drop=True)
+                chart_df = pd.DataFrame({'価格': chart_data})
+                st.line_chart(chart_df)
+                
+                if is_unappraised:
+                    detail_grouped = detail_df.agg(
+                        出品数=('id', 'count'),
+                        最安値=(price_col, 'min'),
+                        最高値=(price_col, 'max')
+                    ).to_frame().T
+                else:
+                    detail_grouped = detail_df.groupby('enhance_lvl').agg(
+                        出品数=('id', 'count'),
+                        最安値=(price_col, 'min'),
+                        最高値=(price_col, 'max')
+                    ).reset_index()
+                    detail_grouped['sort_key'] = detail_grouped['enhance_lvl'].apply(lambda x: int(x.replace('+', '')))
+                    detail_grouped = detail_grouped.sort_values('sort_key').drop('sort_key', axis=1)
+                    detail_grouped.rename(columns={'enhance_lvl': '強化値'}, inplace=True)
+                
+                st.dataframe(
+                    detail_grouped, 
+                    use_container_width=True, 
+                    hide_index=True,
+                    column_config={
+                        "最安値": st.column_config.NumberColumn("最安値", format="¥%d" if is_jpy else "USDT %.2f"),
+                        "最高値": st.column_config.NumberColumn("最高値", format="¥%d" if is_jpy else "USDT %.2f")
+                    }
+                )
+            else:
+                detail_grouped = detail_df.groupby('enhance_lvl').agg(
+                    出品数=('id', 'count'),
+                    最安値=(price_col, 'min'),
+                    最高値=(price_col, 'max')
+                ).reset_index()
+                
+                detail_grouped['sort_key'] = detail_grouped['enhance_lvl'].apply(lambda x: int(x.replace('+', '')))
+                detail_grouped = detail_grouped.sort_values('sort_key').drop('sort_key', axis=1)
+                detail_grouped.rename(columns={'enhance_lvl': '強化値'}, inplace=True)
+                
+                chart_placeholder = st.empty()
+                
+                detail_gb = GridOptionsBuilder.from_dataframe(detail_grouped)
+                detail_gb.configure_selection('single', use_checkbox=False)
+                detail_gb.configure_column("強化値", width=80)
+                detail_gb.configure_column("出品数", width=80)
+                detail_gb.configure_column("最安値", width=100, type=["numericColumn"], valueFormatter=formatter_jscode)
+                detail_gb.configure_column("最高値", width=100, type=["numericColumn"], valueFormatter=formatter_jscode)
+                detail_gb.configure_grid_options(domLayout='autoHeight')
+                detail_go = detail_gb.build()
+                
+                st.markdown("👇 **強化値の行をクリックすると上のチャートが更新されます**")
+                
+                detail_res = AgGrid(
+                    detail_grouped,
+                    gridOptions=detail_go,
+                    update_mode=GridUpdateMode.SELECTION_CHANGED,
+                    allow_unsafe_jscode=True,
+                    theme='streamlit',
+                    key='detail_grid_' + selected_item_name
+                )
+                
+                detail_selected = detail_res.get('selected_rows')
+                if detail_selected is not None and len(detail_selected) > 0:
+                    if isinstance(detail_selected, pd.DataFrame):
+                        sel_enhance = detail_selected.iloc[0]['強化値']
+                    else:
+                        sel_enhance = detail_selected[0]['強化値']
+                        
+                    chart_target = detail_df[detail_df['enhance_lvl'] == sel_enhance]
+                    chart_data = chart_target.sort_values(price_col)[price_col].reset_index(drop=True)
+                    chart_df = pd.DataFrame({'価格': chart_data})
+                    
+                    with chart_placeholder.container():
+                        st.markdown(f"##### 📈 {sel_enhance} の価格分布チャート")
+                        st.line_chart(chart_df)
+                else:
+                    with chart_placeholder.container():
+                        st.info("👆 下の表から強化値をクリックしてチャートを表示")
         else:
-            st.info("👈 左の表からアイテムをクリックすると、ここに強化値ごとの内訳が表示されます。")
+            st.info("👈 左の表からアイテムをクリックすると、ここに内訳やチャートが表示されます。")
