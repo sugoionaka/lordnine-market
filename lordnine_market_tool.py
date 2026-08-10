@@ -4,6 +4,7 @@ import urllib.error
 import json
 import math
 import time
+import datetime
 import concurrent.futures
 import pandas as pd
 from st_aggrid import AgGrid, GridOptionsBuilder, GridUpdateMode, JsCode, ColumnsAutoSizeMode
@@ -226,6 +227,9 @@ realm_code = realm_options.get(selected_realm_name, "OLD_REALM")
 if st.sidebar.button("🔄 最新データを取得 (リロード)"):
     fetch_all_marketplace_data.clear()
 
+last_updated = datetime.datetime.now().strftime("%Y-%m-%d %H:%M:%S")
+st.sidebar.markdown(f"<div style='text-align:center; font-size: 0.8rem; color: gray;'>最終更新: {last_updated}</div>", unsafe_allow_html=True)
+
 st.sidebar.markdown("<hr style='margin: 5px 0;'>", unsafe_allow_html=True)
 
 currency_mode = st.sidebar.radio("価格表示 (通貨)", ["JPY (日本円)", "USDT"])
@@ -335,23 +339,19 @@ else:
         
         summary_df = summary_df.sort_values('name')
         
-        if is_jpy:
-            summary_df['最安値表示'] = summary_df['最安値'].apply(lambda x: f"¥{int(x):,}")
-            summary_df['最高値表示'] = summary_df['最高値'].apply(lambda x: f"¥{int(x):,}")
-        else:
-            summary_df['最安値表示'] = summary_df['最安値'].apply(lambda x: f"USDT {x:,.2f}")
-            summary_df['最高値表示'] = summary_df['最高値'].apply(lambda x: f"USDT {x:,.2f}")
-            
-        display_df = summary_df[['name', 'rarity', '出品数', '最安値表示', '最高値表示']].rename(columns={
+        display_df = summary_df[['name', 'rarity', '出品数', '最安値', '最高値']].rename(columns={
             'name': 'アイテム名',
-            'rarity': 'レアリティ',
-            '最安値表示': '最安値',
-            '最高値表示': '最高値'
+            'rarity': 'レアリティ'
         })
         
         gb = GridOptionsBuilder.from_dataframe(display_df)
         gb.configure_selection('single', use_checkbox=False)
         gb.configure_column("レアリティ", hide=True)
+        
+        formatter_jscode = JsCode("function(params) { return params.value ? '¥' + Math.floor(params.value).toLocaleString() : ''; }") if is_jpy else JsCode("function(params) { return params.value ? 'USDT ' + params.value.toLocaleString(undefined, {minimumFractionDigits: 2, maximumFractionDigits: 2}) : ''; }")
+        gb.configure_column("最安値", type=["numericColumn", "numberColumnFilter"], valueFormatter=formatter_jscode)
+        gb.configure_column("最高値", type=["numericColumn", "numberColumnFilter"], valueFormatter=formatter_jscode)
+        
         
         color_jscode = JsCode("""
         function(params) {
@@ -400,15 +400,22 @@ else:
             detail_grouped['sort_key'] = detail_grouped['enhance_lvl'].apply(lambda x: int(x.replace('+', '')))
             detail_grouped = detail_grouped.sort_values('sort_key').drop('sort_key', axis=1)
             
-            if is_jpy:
-                detail_grouped['最安値'] = detail_grouped['最安値'].apply(lambda x: f"¥{int(x):,}")
-                detail_grouped['最高値'] = detail_grouped['最高値'].apply(lambda x: f"¥{int(x):,}")
-            else:
-                detail_grouped['最安値'] = detail_grouped['最安値'].apply(lambda x: f"USDT {x:,.2f}")
-                detail_grouped['最高値'] = detail_grouped['最高値'].apply(lambda x: f"USDT {x:,.2f}")
-                
             detail_grouped.rename(columns={'enhance_lvl': '強化値'}, inplace=True)
             
-            st.dataframe(detail_grouped, use_container_width=True, hide_index=True)
+            st.dataframe(
+                detail_grouped, 
+                use_container_width=True, 
+                hide_index=True,
+                column_config={
+                    "最安値": st.column_config.NumberColumn(
+                        "最安値",
+                        format="¥%d" if is_jpy else "USDT %.2f"
+                    ),
+                    "最高値": st.column_config.NumberColumn(
+                        "最高値",
+                        format="¥%d" if is_jpy else "USDT %.2f"
+                    )
+                }
+            )
         else:
             st.info("👈 左の表からアイテムをクリックすると、ここに強化値ごとの内訳が表示されます。")
