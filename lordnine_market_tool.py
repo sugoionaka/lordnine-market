@@ -61,7 +61,7 @@ retry = Retry(
     backoff_factor=0.5,
     status_forcelist=[429, 500, 502, 503, 504],
 )
-adapter = HTTPAdapter(max_retries=retry, pool_connections=50, pool_maxsize=50)
+adapter = HTTPAdapter(max_retries=retry, pool_connections=100, pool_maxsize=100)
 session.mount('http://', adapter)
 session.mount('https://', adapter)
 session.headers.update({
@@ -130,7 +130,7 @@ def fetch_all_marketplace_data(realm_code):
     def fetch_initial(cat):
         return cat, fetch_page(realm_code, cat['id'], 0, size=500)
         
-    with concurrent.futures.ThreadPoolExecutor(max_workers=40) as executor:
+    with concurrent.futures.ThreadPoolExecutor(max_workers=100) as executor:
         future_to_cat = {executor.submit(fetch_initial, cat): cat for cat in categories_to_fetch}
         for future in concurrent.futures.as_completed(future_to_cat):
             cat, first_page = future.result()
@@ -152,7 +152,7 @@ def fetch_all_marketplace_data(realm_code):
     if page_tasks:
         completed_tasks = 0
         total_tasks = len(page_tasks)
-        with concurrent.futures.ThreadPoolExecutor(max_workers=40) as executor:
+        with concurrent.futures.ThreadPoolExecutor(max_workers=100) as executor:
             future_to_info = {
                 executor.submit(fetch_page, realm_code, task[0], task[1], 500): task 
                 for task in page_tasks
