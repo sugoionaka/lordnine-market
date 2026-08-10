@@ -359,8 +359,10 @@ else:
         gb.configure_column("レアリティ", hide=True)
         
         formatter_jscode = JsCode("function(params) { return params.value ? '¥' + Math.floor(params.value).toLocaleString() : ''; }") if is_jpy else JsCode("function(params) { return params.value ? 'USDT ' + params.value.toLocaleString(undefined, {minimumFractionDigits: 2, maximumFractionDigits: 2}) : ''; }")
-        gb.configure_column("最安値", type=["numericColumn", "numberColumnFilter"], valueFormatter=formatter_jscode)
-        gb.configure_column("最高値", type=["numericColumn", "numberColumnFilter"], valueFormatter=formatter_jscode)
+        
+        gb.configure_column("出品数", width=85, suppressSizeToFit=True)
+        gb.configure_column("最安値", width=100, type=["numericColumn", "numberColumnFilter"], valueFormatter=formatter_jscode, suppressSizeToFit=True)
+        gb.configure_column("最高値", width=100, type=["numericColumn", "numberColumnFilter"], valueFormatter=formatter_jscode, suppressSizeToFit=True)
         
         
         color_jscode = JsCode("""
@@ -375,7 +377,7 @@ else:
             return {'color': 'white', 'fontWeight': 'bold'};
         }
         """)
-        gb.configure_column("アイテム名", cellStyle=color_jscode)
+        gb.configure_column("アイテム名", cellStyle=color_jscode, flex=1, tooltipField="アイテム名", minWidth=200)
         gb.configure_grid_options(domLayout='autoHeight')
         
         go = gb.build()
@@ -385,8 +387,7 @@ else:
             gridOptions=go,
             update_mode=GridUpdateMode.SELECTION_CHANGED,
             allow_unsafe_jscode=True,
-            theme='streamlit',
-            columns_auto_size_mode=ColumnsAutoSizeMode.FIT_CONTENTS
+            theme='streamlit'
         )
     
     with col_details:
